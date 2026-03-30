@@ -77,9 +77,9 @@ struct EditorAreaView: View {
                             }
                         }
                         .onReceive(selected.file.fileDocumentPublisher) { latestValue in
-                            self.codeFile = { [weak latestValue] in latestValue }
+                                self.codeFile = { [weak latestValue] in latestValue }
+                            }
                         }
-                }
             } else {
                 CEContentUnavailableView("No Editor")
                     .padding(.top, editorInsetAmount)
@@ -194,8 +194,12 @@ struct EditorAreaView: View {
             }
         }
         .onChange(of: editor.selectedTab) { _, newValue in
+            // Update the codeFile immediately to avoid visual delay.
+            // This is safe because we're only reading from the new value, not modifying @Published state.
             if let file = newValue?.file.fileDocument {
                 codeFile = { [weak file] in file }
+            } else {
+                codeFile = nil
             }
         }
     }

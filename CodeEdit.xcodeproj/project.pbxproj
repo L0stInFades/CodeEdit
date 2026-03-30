@@ -28,12 +28,11 @@
 		6C6BD6F829CD14D100235D17 /* CodeEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C6BD6F729CD14D100235D17 /* CodeEditKit */; };
 		6C6BD6F929CD14D100235D17 /* CodeEditKit in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 6C6BD6F729CD14D100235D17 /* CodeEditKit */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		6C73A6D32D4F1E550012D95C /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 6C73A6D22D4F1E550012D95C /* CodeEditSourceEditor */; };
-
 		6C81916B29B41DD300B75C92 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 6C81916A29B41DD300B75C92 /* DequeModule */; };
 		6C85BB402C2105ED00EB5DEF /* CodeEditKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C85BB3F2C2105ED00EB5DEF /* CodeEditKit */; };
 		6C85BB442C210EFD00EB5DEF /* SwiftUIIntrospect in Frameworks */ = {isa = PBXBuildFile; productRef = 6C85BB432C210EFD00EB5DEF /* SwiftUIIntrospect */; };
-		6C8B56492E2FE62E00DC3F29 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8B56482E2FE62E00DC3F29 /* CodeEditSourceEditor */; };
 		6C883FD42E620E2B005BCFE8 /* WelcomeWindow in Frameworks */ = {isa = PBXBuildFile; productRef = 6C883FD32E620E2B005BCFE8 /* WelcomeWindow */; };
+		6C8B56492E2FE62E00DC3F29 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8B56482E2FE62E00DC3F29 /* CodeEditSourceEditor */; };
 		6C9DB9E42D55656300ACD86E /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 6C9DB9E32D55656300ACD86E /* CodeEditSourceEditor */; };
 		6CAAF68A29BC9C2300A1F48A /* (null) in Sources */ = {isa = PBXBuildFile; };
 		6CAAF69229BCC71C00A1F48A /* (null) in Sources */ = {isa = PBXBuildFile; };
@@ -196,11 +195,9 @@
 				2816F594280CF50500DD548B /* CodeEditSymbols in Frameworks */,
 				30CB64942C16CA9100CC8A9E /* LanguageClient in Frameworks */,
 				6C8B56492E2FE62E00DC3F29 /* CodeEditSourceEditor in Frameworks */,
-				5EACE6222DF4BF08005E08B8 /* WelcomeWindow in Frameworks */,
 				6C6BD6F829CD14D100235D17 /* CodeEditKit in Frameworks */,
 				6C0824A12C5C0C9700A0751E /* SwiftTerm in Frameworks */,
 				6C81916B29B41DD300B75C92 /* DequeModule in Frameworks */,
-				6C77BFBC2E53B6860076827C /* CodeEditSourceEditor in Frameworks */,
 				6CB94D032CA1205100E8651C /* AsyncAlgorithms in Frameworks */,
 				6C9DB9E42D55656300ACD86E /* CodeEditSourceEditor in Frameworks */,
 			);
@@ -340,7 +337,6 @@
 				6CCF6DD22E26D48F00B94F75 /* SwiftTerm */,
 				6CCF73CF2E26DE3200B94F75 /* SwiftTerm */,
 				6C8B56482E2FE62E00DC3F29 /* CodeEditSourceEditor */,
-				6C77BFBB2E53B6860076827C /* CodeEditSourceEditor */,
 				6C33D9FA2E5F9184007782E7 /* WelcomeWindow */,
 				6C883FD32E620E2B005BCFE8 /* WelcomeWindow */,
 			);
@@ -1808,7 +1804,6 @@
 				minimumVersion = 0.2.0;
 			};
 		};
-
 		6C85BB3E2C2105ED00EB5DEF /* XCRemoteSwiftPackageReference "CodeEditKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/CodeEditApp/CodeEditKit";
@@ -1935,7 +1930,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = CodeEditSourceEditor;
 		};
-
 		6C7B1C752A1D57CE005CBBFC /* SwiftLint */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 287136B1292A407E00E9F5F4 /* XCRemoteSwiftPackageReference "SwiftLintPlugin" */;
@@ -1956,14 +1950,14 @@
 			package = 6C85BB422C210EFD00EB5DEF /* XCRemoteSwiftPackageReference "SwiftUI-Introspect" */;
 			productName = SwiftUIIntrospect;
 		};
-		6C8B56482E2FE62E00DC3F29 /* CodeEditSourceEditor */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = CodeEditSourceEditor;
-		};
 		6C883FD32E620E2B005BCFE8 /* WelcomeWindow */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6C883FD22E620E2A005BCFE8 /* XCRemoteSwiftPackageReference "WelcomeWindow" */;
 			productName = WelcomeWindow;
+		};
+		6C8B56482E2FE62E00DC3F29 /* CodeEditSourceEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CodeEditSourceEditor;
 		};
 		6C9DB9E32D55656300ACD86E /* CodeEditSourceEditor */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -19,8 +19,8 @@ struct EditorHistoryMenus: View {
                     id: \.offset
                 ) { index, file in
                     Button {
-                        editorManager.activeEditor = editor
-                        editor.historyOffset += index + 1
+                            editorManager.activeEditor = editor
+                            editor.setHistoryOffset(editor.historyOffset + index + 1)
                     } label: {
                         HStack {
                             file.icon
@@ -34,8 +34,8 @@ struct EditorHistoryMenus: View {
                     .frame(height: EditorTabBarView.height - 2)
                     .padding(.horizontal, 4)
             } primaryAction: {
-                editorManager.activeEditor = editor
-                editor.goBackInHistory()
+                    editorManager.activeEditor = editor
+                    editor.goBackInHistory()
             }
             .disabled(editor.historyOffset == editor.history.count - 1 || editor.history.isEmpty)
             .help("Navigate back")
@@ -46,8 +46,8 @@ struct EditorHistoryMenus: View {
                     id: \.offset
                 ) { index, file in
                     Button {
-                        editorManager.activeEditor = editor
-                        editor.historyOffset -= index + 1
+                            editorManager.activeEditor = editor
+                            editor.setHistoryOffset(editor.historyOffset - index - 1)
                     } label: {
                         HStack {
                             file.icon
@@ -61,8 +61,8 @@ struct EditorHistoryMenus: View {
                     .frame(height: EditorTabBarView.height - 2)
                     .padding(.horizontal, 4)
             } primaryAction: {
-                editorManager.activeEditor = editor
-                editor.goForwardInHistory()
+                    editorManager.activeEditor = editor
+                    editor.goForwardInHistory()
             }
             .disabled(editor.historyOffset == 0)
             .help("Navigate forward")

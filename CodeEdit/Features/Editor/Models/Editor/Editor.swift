@@ -40,13 +40,10 @@ final class Editor: ObservableObject, Identifiable {
     }
 
     /// The current offset in the history list.
-    /// When set, updates the ``selectedTab`` to the tab indicated by the offset.
-    /// See the ``historyOffsetDidChange()`` method for more details.
-    @Published var historyOffset: Int = 0 {
-        didSet {
-            historyOffsetDidChange()
-        }
-    }
+    /// When set via ``setHistoryOffset(_:)``, updates the ``selectedTab`` to the tab indicated by the offset.
+    /// - Note: Use ``setHistoryOffset(_:)`` to modify this property with side effects, or set directly to
+    ///         avoid triggering ``historyOffsetDidChange()``.
+    @Published var historyOffset: Int = 0
 
     /// Maintains the list of tabs that have been switched to.
     /// - Warning: Use the ``addToHistory(_:)`` or ``clearFuture()`` methods to modify this. Do not modify directly.

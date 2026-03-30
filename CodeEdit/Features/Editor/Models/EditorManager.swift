@@ -34,7 +34,9 @@ class EditorManager: ObservableObject {
     var cancellable: AnyCancellable?
 
     // This caching mechanism is a temporary solution and is not optimized
-    @Published var updateCachedFlattenedEditors: Bool = true
+    // Note: updateCachedFlattenedEditors is NOT @Published to avoid modifying
+    // published state when flattenedEditors is accessed during view body evaluation.
+    var updateCachedFlattenedEditors: Bool = true
     var cachedFlettenedEditors: [Editor] = []
     var flattenedEditors: [Editor] {
         if updateCachedFlattenedEditors {

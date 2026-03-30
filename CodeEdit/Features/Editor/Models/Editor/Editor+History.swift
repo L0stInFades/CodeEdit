@@ -19,6 +19,8 @@ extension Editor {
 
     /// Clear any tabs in the "future" on the history list. Resets the history offset and removes any tabs that were
     /// available to navigate forwards to.
+    /// - Note: This sets historyOffset directly without triggering ``historyOffsetDidChange()`` to avoid
+    ///         cascading @Published modifications.
     func clearFuture() {
         guard historyOffset > 0 else { return } // nothing to clear, avoid an out of bounds error
         history.removeFirst(historyOffset)
@@ -28,15 +30,22 @@ extension Editor {
     /// Move backwards in the history list by one place.
     func goBackInHistory() {
         if canGoBackInHistory {
-            historyOffset += 1
+            setHistoryOffset(historyOffset + 1)
         }
     }
 
     /// Move forwards in the history list by one place.
     func goForwardInHistory() {
         if canGoForwardInHistory {
-            historyOffset -= 1
+            setHistoryOffset(historyOffset - 1)
         }
+    }
+
+    /// Sets the history offset and triggers the associated side effects.
+    /// - Parameter newOffset: The new history offset value.
+    func setHistoryOffset(_ newOffset: Int) {
+        historyOffset = newOffset
+        historyOffsetDidChange()
     }
 
     // TODO: move to @Observable so this works better
@@ -51,11 +60,11 @@ extension Editor {
         historyOffset != 0
     }
 
-    /// Called by the ``Editor`` class when the history offset is changed.
+    /// Called when the history offset is changed via ``setHistoryOffset(_:)``.
     ///
     /// This method updates the selected tab to the current tab in the history offset.
     /// If the tab is not opened, it is opened without modifying the history list.
-    /// - Warning: Do not use except in the ``historyOffset``'s `didSet`.
+    /// - Warning: Do not use directly. Use ``setHistoryOffset(_:)`` instead.
     func historyOffsetDidChange() {
         let file = history[historyOffset]
 

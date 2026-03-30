@@ -14,10 +14,10 @@ import Combine
 
 /// CodeFileView is just a wrapper of the `CodeEditor` dependency
 struct CodeFileView: View {
-    @ObservedObject private var editorInstance: EditorInstance
+    /// The editor instance for this view. Not observed - we only read static properties from it.
+    /// State like cursorPositions and scrollPosition is managed through the StateHolder binding.
+    private var editorInstance: EditorInstance
     @ObservedObject private var codeFile: CodeFileDocument
-
-    @State private var treeSitterClient: TreeSitterClient = TreeSitterClient()
 
     /// Any coordinators passed to the view.
     private var textViewCoordinators: [TextViewCoordinator]
@@ -67,8 +67,6 @@ struct CodeFileView: View {
 
     @ObservedObject private var themeModel: ThemeModel = .shared
 
-    @State private var treeSitter = TreeSitterClient()
-
     private var cancellables = Set<AnyCancellable>()
 
     private let isEditable: Bool
@@ -79,8 +77,10 @@ struct CodeFileView: View {
         textViewCoordinators: [TextViewCoordinator] = [],
         isEditable: Bool = true
     ) {
-        self._editorInstance = .init(wrappedValue: editorInstance)
+        self.editorInstance = editorInstance
         self._codeFile = .init(wrappedValue: codeFile)
+        // Initialize the state holder to break SwiftUI observation of editorInstance's @Published properties.
+        self._stateHolder = State(initialValue: StateHolder(editorInstance: editorInstance))
 
         self.textViewCoordinators = textViewCoordinators
             + [editorInstance.rangeTranslator]
@@ -89,11 +89,11 @@ struct CodeFileView: View {
         self.isEditable = isEditable
 
         if let openOptions = codeFile.openOptions {
-            codeFile.openOptions = nil
-            editorInstance.cursorPositions = openOptions.cursorPositions
+                codeFile.openOptions = nil
+                editorInstance.cursorPositions = openOptions.cursorPositions
         }
 
-        highlightProviders = [codeFile.languageServerObjects.highlightProvider] + [treeSitterClient]
+        highlightProviders = [codeFile.languageServerObjects.highlightProvider] + [codeFile.treeSitterClient]
 
         codeFile
             .contentCoordinator
@@ -112,6 +112,61 @@ struct CodeFileView: View {
 
     @Environment(\.edgeInsets)
     private var edgeInsets
+
+    /// Wrapper class that holds the state and breaks SwiftUI observation.
+    /// Using a class wrapper prevents SwiftUI from tracking the editorInstance's @Published properties.
+    private final class StateHolder {
+        weak var editorInstance: EditorInstance?
+
+        init(editorInstance: EditorInstance) {
+            self.editorInstance = editorInstance
+        }
+
+        func getState() -> SourceEditorState {
+            guard let editorInstance else {
+                return SourceEditorState()
+            }
+            return SourceEditorState(
+                cursorPositions: editorInstance.cursorPositions,
+                scrollPosition: editorInstance.scrollPosition,
+                findText: editorInstance.findText,
+                replaceText: editorInstance.replaceText
+            )
+        }
+
+        func setState(_ newState: SourceEditorState) {
+            guard let editorInstance else { return }
+            // Update synchronously to avoid scroll jitter.
+            // The SourceEditor coordinator already defers calls to this setter,
+            // so we should be outside of SwiftUI's view update phase.
+            if editorInstance.cursorPositions != (newState.cursorPositions ?? []) {
+                editorInstance.cursorPositions = newState.cursorPositions ?? []
+            }
+            if editorInstance.scrollPosition != newState.scrollPosition {
+                editorInstance.scrollPosition = newState.scrollPosition
+            }
+            if editorInstance.findText != newState.findText {
+                editorInstance.findText = newState.findText
+                editorInstance.findTextSubject.send(newState.findText)
+            }
+            if editorInstance.replaceText != newState.replaceText {
+                editorInstance.replaceText = newState.replaceText
+                editorInstance.replaceTextSubject.send(newState.replaceText)
+            }
+        }
+    }
+
+    /// Holds a reference to the editorInstance without triggering SwiftUI observation.
+    @State private var stateHolder: StateHolder
+
+    /// Creates a binding that reads/writes to editorInstance properties through the StateHolder.
+    /// The StateHolder breaks SwiftUI observation to avoid the "Publishing changes from within view updates" warning.
+    private var editorStateBinding: Binding<SourceEditorState> {
+        Binding(
+            get: { stateHolder.getState() },
+            set: { newState in stateHolder.setState(newState) }
+        )
+    }
 
     var body: some View {
         SourceEditor(
@@ -148,28 +203,10 @@ struct CodeFileView: View {
                     warningCharacters: Set(warningCharacters.characters.keys)
                 )
             ),
-            state: Binding(
-                get: {
-                    SourceEditorState(
-                        cursorPositions: editorInstance.cursorPositions,
-                        scrollPosition: editorInstance.scrollPosition,
-                        findText: editorInstance.findText,
-                        replaceText: editorInstance.replaceText
-                    )
-                },
-                set: { newState in
-                    editorInstance.cursorPositions = newState.cursorPositions ?? []
-                    editorInstance.scrollPosition = newState.scrollPosition
-                    editorInstance.findText = newState.findText
-                    editorInstance.findTextSubject.send(newState.findText)
-                    editorInstance.replaceText = newState.replaceText
-                    editorInstance.replaceTextSubject.send(newState.replaceText)
-                }
-            ),
+            state: editorStateBinding,
             highlightProviders: highlightProviders,
             undoManager: undoRegistration.manager(forFile: editorInstance.file),
-            coordinators: textViewCoordinators,
-            completionDelegate: editorInstance.autoCompleteCoordinator
+            coordinators: textViewCoordinators
         )
         // This view needs to refresh when the codefile changes. The file URL is too stable.
         .id(ObjectIdentifier(codeFile))
@@ -185,6 +222,11 @@ struct CodeFileView: View {
         .frame(minHeight: .zero, maxHeight: .infinity)
         .onChange(of: settingsFont) { _, newFontSetting in
             font = newFontSetting.current
+        }
+        .onChange(of: editorInstance) { _, newInstance in
+            // Update the stateHolder to point to the new editorInstance.
+            // This is necessary because @State doesn't reset when the view is updated with new parameters.
+            stateHolder = StateHolder(editorInstance: newInstance)
         }
     }
 

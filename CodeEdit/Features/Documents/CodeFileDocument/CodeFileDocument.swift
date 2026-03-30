@@ -10,6 +10,7 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 import CodeEditSourceEditor
+import CodeEditTextView
 import CodeEditLanguages
 import Combine
 import OSLog
@@ -49,6 +50,10 @@ final class CodeFileDocument: NSDocument, ObservableObject {
     /// The coordinator to use to subscribe to edit events and cursor location events.
     /// See ``CodeEditSourceEditor/CombineCoordinator``.
     @Published var contentCoordinator: CombineCoordinator = CombineCoordinator()
+
+    /// The TreeSitter client for this document. Stored here so it persists across tab switches
+    /// and doesn't need to re-parse the document each time the view is recreated.
+    let treeSitterClient: TreeSitterClient = TreeSitterClient()
 
     /// Used to override detected languages.
     @Published var language: CodeLanguage?
