@@ -59,8 +59,8 @@ struct ProjectNavigatorOutlineView: NSViewControllerRepresentable {
                 })
                 .store(in: &cancellables)
             workspace.editorManager?.tabBarTabIdSubject
-                .sink { [weak self] editorInstance in
-                    self?.controller?.updateSelection(itemID: editorInstance?.file.id)
+                .sink { [weak self] in
+                    self?.controller?.updateSelection(itemID: $0)
                 }
                 .store(in: &cancellables)
             workspace.$navigatorFilter

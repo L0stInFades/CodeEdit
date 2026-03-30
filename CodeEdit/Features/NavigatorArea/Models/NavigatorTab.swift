@@ -82,6 +82,8 @@ enum NavigatorTab: WorkspacePanelTab {
             FindNavigatorToolbarBottom()
         case .uiExtension:
             EmptyView()
+        case .issues:
+            EmptyView()
         }
     }
 }
