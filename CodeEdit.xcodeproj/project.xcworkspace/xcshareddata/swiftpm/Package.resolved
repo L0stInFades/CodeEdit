@@ -1,5 +1,5 @@
 {
-  "originHash" : "01191ca9685501db65981a6fd21ab2d11c32196633d4cb776b5bb25908ed212f",
+  "originHash" : "cb537c4be698721c451a485e984c54c3090d565c779a2787a23dd2b5dff269be",
   "pins" : [
     {
       "identity" : "aboutwindow",
@@ -35,15 +35,6 @@
       "state" : {
         "revision" : "331d5dbc5fc8513be5848fce8a2a312908f36a11",
         "version" : "0.1.20"
-      }
-    },
-    {
-      "identity" : "codeeditsourceeditor",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/CodeEditApp/CodeEditSourceEditor",
-      "state" : {
-        "revision" : "ee0c00a2343903df9d6ef45ce53228aca8637369",
-        "version" : "0.15.1"
       }
     },
     {
@@ -285,8 +276,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tree-sitter/tree-sitter",
       "state" : {
-        "revision" : "f2f197b6b27ce75c280c20f131d4f71e906b86f7",
-        "version" : "0.25.8"
+        "revision" : "da6fe9beb4f7f67beb75914ca8e0d48ae48d6406",
+        "version" : "0.25.10"
       }
     },
     {

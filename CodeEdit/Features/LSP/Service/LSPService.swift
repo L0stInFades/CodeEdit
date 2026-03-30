@@ -185,6 +185,7 @@ final class LSPService: ObservableObject {
     /// - Returns: The new language server.
     func startServer(
         for languageId: LanguageIdentifier,
+        workspace: WorkspaceDocument,
         workspacePath: String
     ) async throws -> LanguageServerType {
         guard let serverBinary = languageConfigs[languageId] else {
@@ -196,6 +197,7 @@ final class LSPService: ObservableObject {
         let server = try await LanguageServerType.createServer(
             for: languageId,
             with: serverBinary,
+            workspace: workspace,
             workspacePath: workspacePath
         )
         languageClients[ClientKey(languageId, workspacePath)] = server
@@ -222,7 +224,11 @@ final class LSPService: ObservableObject {
                 if let server = self.languageClients[ClientKey(lspLanguage, workspacePath)] {
                     languageServer = server
                 } else {
-                    languageServer = try await self.startServer(for: lspLanguage, workspacePath: workspacePath)
+                    languageServer = try await self.startServer(
+                        for: lspLanguage,
+                        workspace: workspace,
+                        workspacePath: workspacePath
+                    )
                 }
             } catch {
                 notifyToInstallLanguageServer(language: lspLanguage)

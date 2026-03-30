@@ -19,7 +19,7 @@ extension LSPService {
         // Create a new Task to listen to the events
         let task = Task.detached { [weak self] in
             for await event in languageClient.lspInstance.eventSequence {
-                await self?.handleEvent(event, for: key)
+                await self?.handleEvent(event, for: languageClient)
             }
         }
         eventListeningTasks[key] = task
@@ -32,18 +32,19 @@ extension LSPService {
         }
     }
 
-    private func handleEvent(_ event: ServerEvent, for key: ClientKey) {
-        guard let client = languageClient(for: key.languageId, workspacePath: key.workspacePath) else {
-            return
-        }
-
+    private func handleEvent(
+        _ event: ServerEvent,
+        for languageClient: LanguageServerType
+    ) {
         switch event {
         case let .request(_, request):
-            handleRequest(request, client: client)
+            handleRequest(request, client: languageClient)
         case let .notification(notification):
-            handleNotification(notification, client: client)
+            handleNotification(notification, client: languageClient)
         case let .error(error):
-            logger.warning("Error from server \(key.languageId.rawValue, privacy: .public): \(error)")
+            logger.warning(
+                "Error from server \(languageClient.languageId.rawValue, privacy: .public): \(error)"
+            )
         }
     }
 
@@ -82,8 +83,9 @@ extension LSPService {
             client.logContainer.appendLog(message)
 //        case let .windowShowMessage(params):
 //            print("windowShowMessage \(params.type)\n```\n\(params.message)\n```\n")
-            //        case let .textDocumentPublishDiagnostics(params):
-            //            print("textDocumentPublishDiagnostics: \(params)")
+        case let .textDocumentPublishDiagnostics(params):
+            client.workspace.diagnosticsManager?
+                .updateDiagnostics(params: params)
 //        case let .telemetryEvent(params):
 //            print("telemetryEvent: \(params)")
             //        case let .protocolCancelRequest(params):
