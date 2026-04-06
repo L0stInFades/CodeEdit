@@ -57,6 +57,12 @@ extension ProjectNavigatorViewController: NSOutlineViewDelegate {
         rowHeight // This can be changed to 20 to match Xcode's row height.
     }
 
+    func outlineView(_ outlineView: NSOutlineView, didAdd rowView: NSTableRowView, forRow row: Int) {
+        if #available(macOS 26, *) {
+            rowView.clipsToBounds = false
+        }
+    }
+
     func outlineViewItemDidExpand(_ notification: Notification) {
         // Save expanded items' state to restore when finish filtering.
         guard let workspace else { return }
