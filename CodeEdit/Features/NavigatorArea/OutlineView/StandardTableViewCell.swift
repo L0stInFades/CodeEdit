@@ -69,6 +69,7 @@ class StandardTableViewCell: NSTableCellView {
         label.isBordered = false
         label.isEditable = isEditable
         label.isSelectable = isEditable
+        label.focusRingType = .none
         label.layer?.cornerRadius = 10.0
         label.font = .labelFont(ofSize: fontSize)
         label.lineBreakMode = .byTruncatingMiddle
