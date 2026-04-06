@@ -334,7 +334,7 @@ extension SettingsData {
         /// Otherwise returns a default system font monospaced.
         var current: NSFont {
             let customFont = NSFont(name: name, size: size)?.withWeight(weight: weight)
-            return customFont ?? NSFont.monospacedSystemFont(ofSize: size, weight: .medium)
+            return customFont ?? NSFont.monospacedSystemFont(ofSize: size, weight: weight)
         }
     }
 }
