@@ -86,6 +86,7 @@ struct CodeFileView: View {
             + [editorInstance.rangeTranslator]
             + [codeFile.contentCoordinator]
             + [codeFile.languageServerObjects.textCoordinator]
+            + (editorInstance.dirtyDiffCoordinator.map { [$0] } ?? [])
         self.isEditable = isEditable
 
         if let openOptions = codeFile.openOptions {

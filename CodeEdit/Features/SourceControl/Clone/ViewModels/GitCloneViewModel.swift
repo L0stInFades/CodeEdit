@@ -31,6 +31,7 @@ class GitCloneViewModel: ObservableObject {
         }
         return false
     }
+
     /// Check if Git is installed
     /// - Returns: True if Git is found by running "which git" command
     func isGitInstalled() -> Bool {

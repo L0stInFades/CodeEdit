@@ -93,6 +93,12 @@ extension CEWorkspaceFileManager {
             }
         }
 
+        // Notify dirty diff models when the git index or HEAD changes so they
+        // refetch the original file content.
+        if gitIndexChange != nil || gitHeadChange != nil {
+            NotificationCenter.default.post(name: .gitIndexDidChange, object: nil)
+        }
+
         // If changes were stashed, refresh stashed entries
         if gitStashChange != nil {
             Task {

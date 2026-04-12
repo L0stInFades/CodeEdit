@@ -31,6 +31,12 @@ class EditorInstance: ObservableObject, Hashable {
 
     var rangeTranslator: RangeTranslator = RangeTranslator()
 
+    /// The dirty diff model for computing line-level git changes. Created when the file is in a git workspace.
+    var dirtyDiffModel: DirtyDiffModel?
+
+    /// The coordinator that bridges dirty diff data to the source editor gutter.
+    var dirtyDiffCoordinator: DirtyDiffCoordinator?
+
     private var cancellables: Set<AnyCancellable> = []
 
     // MARK: - Init
@@ -40,6 +46,12 @@ class EditorInstance: ObservableObject, Hashable {
         let url = file.url
         let editorState = EditorStateRestoration.shared?.restorationState(for: url)
         self.autoCompleteCoordinator = AutoCompleteCoordinator(file)
+
+        // Set up dirty diff model for git change indicators
+        let gitClient = workspace?.sourceControlManager?.gitClient
+        let dirtyDiff = DirtyDiffModel(fileURL: url, gitClient: gitClient)
+        self.dirtyDiffModel = dirtyDiff
+        self.dirtyDiffCoordinator = DirtyDiffCoordinator(dirtyDiffModel: dirtyDiff)
 
         findText = workspace?.searchState?.searchQuery
         findTextSubject = PassthroughSubject()
@@ -56,7 +68,7 @@ class EditorInstance: ObservableObject, Hashable {
         Publishers.CombineLatest(
             $cursorPositions.removeDuplicates(),
             $scrollPosition
-                .debounce(for: .seconds(0.1), scheduler: RunLoop.main) // This can trigger *very* often
+                .debounce(for: .seconds(0.1), scheduler: DispatchQueue.main)
                 .removeDuplicates()
         )
         .sink { (cursorPositions, scrollPosition) in
@@ -75,7 +87,7 @@ class EditorInstance: ObservableObject, Hashable {
 
     func listenToFindText(workspace: WorkspaceDocument?) {
         workspace?.searchState?.$searchQuery
-            .receive(on: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] newQuery in
                 if self?.findText != newQuery {
                     self?.findText = newQuery
@@ -83,7 +95,7 @@ class EditorInstance: ObservableObject, Hashable {
             }
             .store(in: &cancellables)
         findTextSubject
-            .receive(on: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .sink { [weak workspace, weak self] newFindText in
                 if let newFindText, workspace?.searchState?.searchQuery != newFindText {
                     workspace?.searchState?.searchQuery = newFindText
@@ -95,7 +107,7 @@ class EditorInstance: ObservableObject, Hashable {
 
     func listenToReplaceText(workspace: WorkspaceDocument?) {
         workspace?.searchState?.$replaceText
-            .receive(on: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] newText in
                 if self?.replaceText != newText {
                     self?.replaceText = newText
@@ -103,7 +115,7 @@ class EditorInstance: ObservableObject, Hashable {
             }
             .store(in: &cancellables)
         replaceTextSubject
-            .receive(on: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .sink { [weak workspace, weak self] newReplaceText in
                 if let newReplaceText, workspace?.searchState?.replaceText != newReplaceText {
                     workspace?.searchState?.replaceText = newReplaceText
