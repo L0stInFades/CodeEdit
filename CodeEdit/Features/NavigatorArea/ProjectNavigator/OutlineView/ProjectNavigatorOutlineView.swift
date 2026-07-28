@@ -58,6 +58,14 @@ struct ProjectNavigatorOutlineView: NSViewControllerRepresentable {
                     self?.controller?.reveal(fileItem)
                 })
                 .store(in: &cancellables)
+            workspace.listenerModel.$fileItemToRename
+                .sink(receiveValue: { [weak self] fileItem in
+                    guard let fileItem else {
+                        return
+                    }
+                    self?.controller?.beginRename(of: fileItem)
+                })
+                .store(in: &cancellables)
             workspace.editorManager?.tabBarTabIdSubject
                 .sink { [weak self] editorInstance in
                     self?.controller?.updateSelection(itemID: editorInstance?.file.id)

@@ -158,6 +158,31 @@ extension ProjectNavigatorViewController: NSOutlineViewDelegate {
         }
     }
 
+    /// Begins an inline rename of the given file's row in the outline view.
+    ///
+    /// The rename is deferred to the next run loop pass so the outline view has processed the
+    /// file system update that created the file and the row's cell view has been realized.
+    /// - Parameter fileItem: The file to begin renaming.
+    func beginRename(of fileItem: CEWorkspaceFile) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let parent = fileItem.parent {
+                self.expandParent(item: parent)
+            }
+            let row = self.outlineView.row(forItem: fileItem)
+            guard row > 0 else { return }
+            self.outlineView.scrollRowToVisible(row)
+            guard let cell = self.outlineView.view(
+                atColumn: 0,
+                row: row,
+                makeIfNecessary: false
+            ) as? ProjectNavigatorTableViewCell else {
+                return
+            }
+            self.outlineView.window?.makeFirstResponder(cell.textField)
+        }
+    }
+
     /// Method for recursively expanding a file's parent directories.
     /// - Parameter item:
     private func expandParent(item: CEWorkspaceFile) {
