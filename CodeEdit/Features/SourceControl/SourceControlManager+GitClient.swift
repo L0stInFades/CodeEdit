@@ -105,6 +105,7 @@ extension SourceControlManager {
                 logger.error("Failed to discard changes for file (\(file.lastPathComponent): \(error)")
                 await showAlertForError(title: "Failed to discard changes", error: error)
             }
+            await refreshAllChangedFiles()
         }
     }
 
@@ -119,6 +120,7 @@ extension SourceControlManager {
                 logger.error("Failed to discard changes: \(error)")
                 await showAlertForError(title: "Failed to discard changes", error: error)
             }
+            await refreshAllChangedFiles()
         }
     }
 

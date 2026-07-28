@@ -83,13 +83,49 @@ extension GitClient {
     }
 
     /// Discard changes for file
+    ///
+    /// Restores a tracked file to `HEAD`, unstaging any staged changes first. Untracked files are moved
+    /// to the Trash so the operation is recoverable.
     func discardChanges(for file: URL) async throws {
-        _ = try await run("restore '\(file.path(percentEncoded: false))'")
+        let filePath = file.path(percentEncoded: false)
+        let status = try await run("status --porcelain -z -- '\(filePath)'")
+        if status.hasPrefix("??") {
+            // Untracked files have no version to restore, move them to the Trash instead.
+            try FileManager.default.trashItem(at: file, resultingItemURL: nil)
+        } else {
+            _ = try await run("restore --staged '\(filePath)'")
+            _ = try await run("restore '\(filePath)'")
+        }
     }
 
-    /// Discard unstaged changes
+    /// Discard all changes in the repository.
+    ///
+    /// Restores tracked files to `HEAD`, unstaging any staged changes first, and moves untracked files
+    /// to the Trash so the operation is recoverable.
     func discardAllChanges() async throws {
+        // Unstage everything first so the working tree restore below also discards formerly staged changes.
+        _ = try await run("restore --staged .")
         _ = try await run("restore .")
+
+        // `restore` leaves untracked files alone. Enumerate them null-separated (to handle spaces and
+        // newlines in file names) and move each one to the Trash.
+        let untrackedFiles = try await run("ls-files --others --exclude-standard -z")
+            .components(separatedBy: "\0")
+            .filter { !$0.isEmpty }
+        var failedFiles: [String] = []
+        for path in untrackedFiles {
+            let fileURL = URL(filePath: path, relativeTo: directoryURL)
+            do {
+                try FileManager.default.trashItem(at: fileURL, resultingItemURL: nil)
+            } catch {
+                failedFiles.append(path)
+            }
+        }
+        guard failedFiles.isEmpty else {
+            throw GitClientError.outputError(
+                "Failed to move untracked files to the Trash: \(failedFiles.joined(separator: ", "))"
+            )
+        }
     }
 
     // MARK: - Parsing Helpers
