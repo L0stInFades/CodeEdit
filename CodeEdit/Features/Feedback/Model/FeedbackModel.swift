@@ -139,19 +139,29 @@ public class FeedbackModel: ObservableObject {
         actuallyHappened: String?
     ) {
         let gitAccounts = Settings[\.accounts].sourceControlAccounts.gitAccounts
-        let firstGitAccount = gitAccounts.first
+        let issueTitle = "\(getFeedbackTypeTitle()) \(title)"
+        let issueBody = createIssueBody(
+            description: description,
+            steps: steps,
+            expectation: expectation,
+            actuallyHappened: actuallyHappened
+        )
 
-        let config = GitHubTokenConfiguration(keychain.get(firstGitAccount!.name))
+        guard let firstGitAccount = gitAccounts.first,
+              let token = keychain.get(firstGitAccount.name),
+              !token.isEmpty else {
+            // No GitHub account with a valid token is configured, so fall back
+            // to opening a pre-filled new issue page in the browser.
+            openNewIssueInBrowser(title: issueTitle, body: issueBody)
+            return
+        }
+
+        let config = GitHubTokenConfiguration(token)
         GitHubAccount(config).postIssue(
             owner: "CodeEditApp",
             repository: "CodeEdit",
-            title: "\(getFeedbackTypeTitle()) \(title)",
-            body: createIssueBody(
-                description: description,
-                steps: steps,
-                expectation: expectation,
-                actuallyHappened: actuallyHappened
-            ),
+            title: issueTitle,
+            body: issueBody,
             assignee: "",
             labels: [getFeedbackTypeLabel(), getIssueLabel()]
         ) { response in
@@ -167,5 +177,26 @@ public class FeedbackModel: ObservableObject {
                 print(error)
             }
         }
+    }
+
+    /// Opens a pre-filled GitHub "new issue" page in the browser. Used as a
+    /// fallback when the issue cannot be submitted via the GitHub API because
+    /// no GitHub account with a valid token is configured.
+    private func openNewIssueInBrowser(title: String, body: String) {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "github.com"
+        components.path = "/CodeEditApp/CodeEdit/issues/new"
+        components.queryItems = [
+            URLQueryItem(name: "title", value: title),
+            URLQueryItem(name: "body", value: body),
+            URLQueryItem(name: "labels", value: [getFeedbackTypeLabel(), getIssueLabel()].joined(separator: ","))
+        ]
+        guard let url = components.url else {
+            failedToSubmit = true
+            return
+        }
+        openIssueURL(url)
+        isSubmitted = true
     }
 }
