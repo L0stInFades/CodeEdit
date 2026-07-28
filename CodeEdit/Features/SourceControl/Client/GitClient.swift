@@ -57,7 +57,7 @@ class GitClient {
     /// Runs a git command, it will prepend the command with `cd <directoryURL>;git`,
     /// If you need to run "git checkout", pass "checkout" as the command parameter
     internal func run(_ command: String) async throws -> String {
-        let output = try shellClient.run(generateCommand(command))
+        let output = try shellClient.run(generateCommand(command), useLoginShell: false)
         return try processCommonErrors(output)
     }
 
@@ -71,7 +71,7 @@ class GitClient {
     /// Here you can run a custom command, this is needed for git clone
     internal func runLive(customCommand: String) -> LiveCommandStream {
         return shellClient
-            .runAsync(customCommand)
+            .runAsync(customCommand, useLoginShell: false)
             .map { output in
                 return try self.processCommonErrors(output)
             }

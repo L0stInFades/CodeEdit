@@ -18,12 +18,17 @@ enum ShellClientError: Error {
 /// Run commands in shell
 class ShellClient {
     /// Generate a process and pipe to run commands
-    /// - Parameter args: commands to run
+    /// - Parameters:
+    ///   - args: commands to run
+    ///   - useLoginShell: whether to run the command in an interactive login shell, sourcing
+    ///                    the user's shell profile files. Defaults to `true`.
     /// - Returns: command output
-    func generateProcessAndPipe(_ args: [String]) -> (Process, Pipe) {
-        // Run in an 'interactive' login shell. Because we're passing -c here it won't actually be
-        // interactive but it will source the user's zshrc file as well as the zshprofile.
-        var arguments = ["-lic"]
+    func generateProcessAndPipe(_ args: [String], useLoginShell: Bool = true) -> (Process, Pipe) {
+        // With `useLoginShell`, run in an 'interactive' login shell. Because we're passing -c here
+        // it won't actually be interactive but it will source the user's zshrc file as well as the
+        // zshprofile. Otherwise pass only -c, so profile files are not sourced and any output they
+        // echo cannot pollute the command's output (see #2151).
+        var arguments = useLoginShell ? ["-lic"] : ["-c"]
         arguments.append(contentsOf: args)
         let task = Process()
         let pipe = Pipe()
@@ -38,11 +43,14 @@ class ShellClient {
     var cancellables: [UUID: AnyCancellable] = [:]
 
     /// Run a command
-    /// - Parameter args: command to run
+    /// - Parameters:
+    ///   - args: command to run
+    ///   - useLoginShell: whether to run the command in a login shell, sourcing the user's
+    ///                    shell profile files. Defaults to `true`.
     /// - Returns: command output
     @discardableResult
-    func run(_ args: String...) throws -> String {
-        let (task, pipe) = generateProcessAndPipe(args)
+    func run(_ args: String..., useLoginShell: Bool = true) throws -> String {
+        let (task, pipe) = generateProcessAndPipe(args, useLoginShell: useLoginShell)
         try task.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         guard let output = String(bytes: data, encoding: .utf8) else {
@@ -89,10 +97,13 @@ class ShellClient {
     }
 
     /// Run a command with AsyncStream
-    /// - Parameter args: command to run
+    /// - Parameters:
+    ///   - args: command to run
+    ///   - useLoginShell: whether to run the command in a login shell, sourcing the user's
+    ///                    shell profile files. Defaults to `true`.
     /// - Returns: async stream of command output
-    func runAsync(_ args: String...) -> AsyncThrowingStream<String, Error> {
-        let (task, pipe) = generateProcessAndPipe(args)
+    func runAsync(_ args: String..., useLoginShell: Bool = true) -> AsyncThrowingStream<String, Error> {
+        let (task, pipe) = generateProcessAndPipe(args, useLoginShell: useLoginShell)
 
         return AsyncThrowingStream { continuation in
             pipe.fileHandleForReading.readabilityHandler = { [unowned pipe] fileHandle in

@@ -38,7 +38,7 @@ class GitConfigClient {
         }
 
         fullCommand += " \(command)"
-        return try shellClient.run(fullCommand)
+        return try shellClient.run(fullCommand, useLoginShell: false)
     }
 
     /// Retrieves a Git configuration value.
