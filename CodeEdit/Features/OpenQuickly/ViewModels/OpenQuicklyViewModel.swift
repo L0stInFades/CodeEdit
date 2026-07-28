@@ -48,6 +48,10 @@ final class OpenQuicklyViewModel: ObservableObject {
             return
         }
 
+        // Read settings on the caller's actor; the detached task must not touch `Settings.shared`.
+        let ignoredGlobPatterns = Settings[\.search].ignoreGlobPatterns
+        let workspacePath = fileURL.path
+
         runningTask?.cancel()
         runningTask = Task.detached(priority: .userInitiated) {
             let enumerator = FileManager.default.enumerator(
@@ -61,14 +65,24 @@ final class OpenQuicklyViewModel: ObservableObject {
             )
             if let filePaths = enumerator?.allObjects as? [URL] {
                 guard !Task.isCancelled else { return }
-                /// removes all filePaths which aren't regular files
+                /// removes all filePaths which aren't regular files or match an ignored glob pattern
                 let filteredFiles = filePaths.filter { url in
                     do {
                         let values = try url.resourceValues(forKeys: [.isRegularFileKey])
-                        return (values.isRegularFile ?? false)
+                        guard values.isRegularFile ?? false else {
+                            return false
+                        }
                     } catch {
                         return false
                     }
+                    var relativePath = url.path
+                    if relativePath.hasPrefix(workspacePath) {
+                        relativePath = String(relativePath.dropFirst(workspacePath.count))
+                    }
+                    while relativePath.hasPrefix("/") {
+                        relativePath = String(relativePath.dropFirst())
+                    }
+                    return !ignoredGlobPatterns.contains { $0.matches(relativePath: relativePath) }
                 }
 
                 let fuzzySearchResults = await filteredFiles.fuzzySearch(
