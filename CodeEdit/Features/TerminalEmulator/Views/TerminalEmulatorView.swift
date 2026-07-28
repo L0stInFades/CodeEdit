@@ -213,6 +213,9 @@ struct TerminalEmulatorView: NSViewRepresentable {
         view.optionAsMetaKey = optionAsMeta
         view.cursorStyleChanged(source: view.getTerminal(), newStyle: getTerminalCursor())
         view.appearance = colorAppearance
+        if view.font != font { // SwiftTerm's setter resizes/relayouts, so only set when changed
+            view.font = font
+        }
         view.getTerminal().softReset()
         view.feed(text: "") // send empty character to force colors to be redrawn
     }
