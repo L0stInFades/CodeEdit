@@ -50,13 +50,19 @@ struct GlobPatternTests {
             )
             let fileURL = URL(filePath: canonicalPath)
                 .appending(path: "Sources/App.swift")
+            let rawFileURL = workspaceURL.appending(path: "Sources/App.swift")
 
-            let relativePath = OpenQuicklyViewModel.workspaceRelativePath(
+            let canonicalRelativePath = OpenQuicklyViewModel.workspaceRelativePath(
                 for: fileURL,
                 in: workspaceURL
             )
+            let rawRelativePath = OpenQuicklyViewModel.workspaceRelativePath(
+                for: rawFileURL,
+                in: workspaceURL
+            )
 
-            #expect(relativePath == "Sources/App.swift")
+            #expect(canonicalRelativePath == "Sources/App.swift")
+            #expect(rawRelativePath == "Sources/App.swift")
         }
     }
 

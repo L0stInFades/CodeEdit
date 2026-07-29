@@ -133,7 +133,9 @@ final class OpenQuicklyViewModel: ObservableObject {
     private static func workspaceRelativePath(for fileURL: URL, workspacePaths: [String]) -> String? {
         let filePath = fileURL.standardizedFileURL.path(percentEncoded: false)
         for workspacePath in workspacePaths {
-            let prefix = workspacePath == "/" ? "/" : workspacePath + "/"
+            let prefix = workspacePath == "/" || workspacePath.hasSuffix("/")
+                ? workspacePath
+                : workspacePath + "/"
             guard filePath.hasPrefix(prefix) else { continue }
             return String(filePath.dropFirst(prefix.count))
         }
