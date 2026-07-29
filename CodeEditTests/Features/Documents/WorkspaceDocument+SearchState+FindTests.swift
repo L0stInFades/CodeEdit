@@ -27,6 +27,7 @@ final class FindTests: XCTestCase {
         )
         .appending(path: "CodeEdit", directoryHint: .isDirectory)
         .appending(path: "WorkspaceClientTests", directoryHint: .isDirectory)
+        .appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try? FileManager.default.removeItem(at: directory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
