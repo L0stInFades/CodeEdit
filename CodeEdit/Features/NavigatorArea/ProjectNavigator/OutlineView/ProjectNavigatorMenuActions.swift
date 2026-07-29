@@ -104,7 +104,7 @@ extension ProjectNavigatorMenu {
     func renameFile() {
         guard let newFile = workspace?.listenerModel.highlightedFileItem else { return }
         let row = sender.outlineView.row(forItem: newFile)
-        guard row > 0,
+        guard row >= 0,
               let cell = sender.outlineView.view(
                 atColumn: 0,
                 row: row,

@@ -80,6 +80,7 @@ final class OpenQuicklyViewModel: ObservableObject {
 
     static func searchableFiles(in workspaceURL: URL, excluding patterns: [GlobPattern]) -> [URL] {
         let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey]
+        let workspacePaths = workspacePathCandidates(for: workspaceURL)
         guard let enumerator = FileManager.default.enumerator(
             at: workspaceURL,
             includingPropertiesForKeys: Array(resourceKeys),
@@ -93,11 +94,10 @@ final class OpenQuicklyViewModel: ObservableObject {
             if Task.isCancelled {
                 break
             }
-            guard let values = try? url.resourceValues(forKeys: resourceKeys) else {
+            guard let values = try? url.resourceValues(forKeys: resourceKeys),
+                  let relativePath = workspaceRelativePath(for: url, workspacePaths: workspacePaths) else {
                 continue
             }
-            let relativePath = url.path(percentEncoded: false)
-                .dropWorkspacePrefix(workspaceURL.path(percentEncoded: false))
 
             if values.isDirectory == true {
                 if patterns.contains(where: { $0.matches(relativePath: relativePath, isDirectory: true) }) {
@@ -110,17 +110,33 @@ final class OpenQuicklyViewModel: ObservableObject {
         }
         return files
     }
-}
 
-private extension String {
-    func dropWorkspacePrefix(_ workspacePath: String) -> String {
-        var relativePath = self
-        if relativePath.hasPrefix(workspacePath) {
-            relativePath.removeFirst(workspacePath.count)
+    static func workspaceRelativePath(for fileURL: URL, in workspaceURL: URL) -> String? {
+        workspaceRelativePath(
+            for: fileURL,
+            workspacePaths: workspacePathCandidates(for: workspaceURL)
+        )
+    }
+
+    private static func workspacePathCandidates(for workspaceURL: URL) -> [String] {
+        var workspacePaths = Set([
+            workspaceURL.standardizedFileURL.path(percentEncoded: false)
+        ])
+        if let canonicalPath = try? workspaceURL.resourceValues(
+            forKeys: [.canonicalPathKey]
+        ).canonicalPath {
+            workspacePaths.insert(canonicalPath)
         }
-        while relativePath.hasPrefix("/") {
-            relativePath.removeFirst()
+        return workspacePaths.sorted(by: { $0.count > $1.count })
+    }
+
+    private static func workspaceRelativePath(for fileURL: URL, workspacePaths: [String]) -> String? {
+        let filePath = fileURL.standardizedFileURL.path(percentEncoded: false)
+        for workspacePath in workspacePaths {
+            let prefix = workspacePath == "/" ? "/" : workspacePath + "/"
+            guard filePath.hasPrefix(prefix) else { continue }
+            return String(filePath.dropFirst(prefix.count))
         }
-        return relativePath
+        return nil
     }
 }

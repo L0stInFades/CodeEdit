@@ -170,12 +170,12 @@ extension ProjectNavigatorViewController: NSOutlineViewDelegate {
                 self.expandParent(item: parent)
             }
             let row = self.outlineView.row(forItem: fileItem)
-            guard row > 0 else { return }
+            guard row >= 0 else { return }
             self.outlineView.scrollRowToVisible(row)
             guard let cell = self.outlineView.view(
                 atColumn: 0,
                 row: row,
-                makeIfNecessary: false
+                makeIfNecessary: true
             ) as? ProjectNavigatorTableViewCell else {
                 return
             }

@@ -43,6 +43,24 @@ struct GlobPatternTests {
     }
 
     @Test
+    func derivesRelativePathAcrossCanonicalWorkspaceAlias() throws {
+        try withTempDir { workspaceURL in
+            let canonicalPath = try #require(
+                workspaceURL.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath
+            )
+            let fileURL = URL(filePath: canonicalPath)
+                .appending(path: "Sources/App.swift")
+
+            let relativePath = OpenQuicklyViewModel.workspaceRelativePath(
+                for: fileURL,
+                in: workspaceURL
+            )
+
+            #expect(relativePath == "Sources/App.swift")
+        }
+    }
+
+    @Test
     func searchableFilesPrunesExcludedDirectories() throws {
         try withTempDir { workspaceURL in
             try createFile(
@@ -59,11 +77,8 @@ struct GlobPatternTests {
                     GlobPattern(value: "vendor/")
                 ]
             )
-            let relativePaths = Set(files.map { fileURL in
-                String(
-                    fileURL.path(percentEncoded: false)
-                        .dropFirst(workspaceURL.path(percentEncoded: false).count + 1)
-                )
+            let relativePaths = Set(files.compactMap { fileURL in
+                OpenQuicklyViewModel.workspaceRelativePath(for: fileURL, in: workspaceURL)
             })
 
             #expect(relativePaths == Set(["Sources/App.swift"]))

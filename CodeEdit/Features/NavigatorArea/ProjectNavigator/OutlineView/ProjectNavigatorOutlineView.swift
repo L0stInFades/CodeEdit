@@ -58,11 +58,8 @@ struct ProjectNavigatorOutlineView: NSViewControllerRepresentable {
                     self?.controller?.reveal(fileItem)
                 })
                 .store(in: &cancellables)
-            workspace.listenerModel.$fileItemToRename
+            workspace.listenerModel.fileItemToRename
                 .sink(receiveValue: { [weak self] fileItem in
-                    guard let fileItem else {
-                        return
-                    }
                     self?.controller?.beginRename(of: fileItem)
                 })
                 .store(in: &cancellables)

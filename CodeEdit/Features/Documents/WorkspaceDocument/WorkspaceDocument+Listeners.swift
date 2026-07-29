@@ -12,10 +12,8 @@ class WorkspaceNotificationModel: ObservableObject {
 
     @Published var highlightedFileItem: CEWorkspaceFile?
 
-    /// The file item the project navigator should begin an inline rename for.
-    ///
-    /// Set this after creating a new file or folder so the user can immediately type its name.
-    @Published var fileItemToRename: CEWorkspaceFile?
+    /// Emits after creating a file or folder so the project navigator can begin an inline rename.
+    let fileItemToRename = PassthroughSubject<CEWorkspaceFile, Never>()
 
     init() {
         highlightedFileItem = nil
