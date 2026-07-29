@@ -202,13 +202,9 @@ extension GitClient {
 
     private func hasHeadCommit() async throws -> Bool {
         do {
-            _ = try await run("rev-parse --verify HEAD")
+            _ = try await run("rev-parse --verify --quiet HEAD")
             return true
-        } catch GitClientError.outputError(let output) where
-            output.contains("Needed a single revision") ||
-            output.contains("unknown revision") ||
-            output.contains("ambiguous argument 'HEAD'") ||
-            output.contains("bad revision 'HEAD'") {
+        } catch GitClientError.outputError("Git exited with status code 1.") {
             return false
         }
     }

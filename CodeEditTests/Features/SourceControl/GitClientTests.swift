@@ -231,15 +231,17 @@ struct GitClientTests {
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-        let output = String(decoding: data, as: UTF8.self)
+        guard let output = String(data: data, encoding: .utf8) else {
+            throw GitTestError.invalidOutput
+        }
         guard process.terminationStatus == 0 else {
             throw GitTestError.commandFailed(arguments: arguments, output: output)
         }
         return output
     }
 
-    private struct GitTestError: Error {
-        let arguments: [String]
-        let output: String
+    private enum GitTestError: Error {
+        case invalidOutput
+        case commandFailed(arguments: [String], output: String)
     }
 }

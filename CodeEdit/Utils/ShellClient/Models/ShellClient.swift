@@ -17,7 +17,7 @@ enum ShellClientError: LocalizedError {
         switch self {
         case .failedToDecodeOutput:
             return "Failed to decode shell command output."
-        case .taskTerminated(let code, let output):
+        case let .taskTerminated(code, output):
             let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmedOutput.isEmpty
                 ? "Shell command exited with status code \(code)."

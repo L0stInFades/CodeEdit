@@ -61,10 +61,9 @@ struct GlobPattern: Identifiable, Hashable, Decodable, Encodable {
             }
         }
 
-        for length in 1...candidateLength {
-            if Self.segmentsMatch(patternSegments, Array(pathSegments.prefix(length))) {
-                return true
-            }
+        for length in 1...candidateLength
+        where Self.segmentsMatch(patternSegments, Array(pathSegments.prefix(length))) {
+            return true
         }
         return false
     }

@@ -87,9 +87,11 @@ struct FeedbackModelTests {
     @Test
     func githubTokenConfigurationUsesBearerAuthentication() {
         let configuration = GitHubTokenConfiguration("secret-token")
+        let request = GitHubUserRouter.readAuthenticatedUser(configuration).request()
 
         #expect(configuration.accessToken == "secret-token")
         #expect(configuration.authorizationHeader == "Bearer")
+        #expect(request?.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     }
 
     private func makeAccount(
