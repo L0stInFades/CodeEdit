@@ -27,14 +27,13 @@ extension Bool: GitConfigRepresentable {
 
 /// Conformance of `String` to `GitConfigRepresentable`
 ///
-/// This enables `String` values to be represented in Git configuration,
-/// automatically escaping them with quotes.
+/// This enables `String` values to be represented in Git configuration.
 extension String: GitConfigRepresentable {
     public init?(configValue: String) {
         self = configValue
     }
 
     public var asConfigValue: String {
-        "\"\(self)\""
+        self
     }
 }

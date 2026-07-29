@@ -9,14 +9,90 @@ import Combine
 import Foundation
 
 /// Errors that can occur during shell operations
-enum ShellClientError: Error {
+enum ShellClientError: LocalizedError {
     case failedToDecodeOutput
-    case taskTerminated(code: Int)
+    case taskTerminated(code: Int, output: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .failedToDecodeOutput:
+            return "Failed to decode shell command output."
+        case .taskTerminated(let code, let output):
+            let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmedOutput.isEmpty
+                ? "Shell command exited with status code \(code)."
+                : trimmedOutput
+        }
+    }
 }
 
 /// Shell Client
 /// Run commands in shell
 class ShellClient {
+    typealias EnvironmentProvider = () -> [String: String]
+
+    private static let cachedLoginShellEnvironment = resolveLoginShellEnvironment()
+    private let nonLoginShellEnvironmentProvider: EnvironmentProvider
+
+    init(
+        nonLoginShellEnvironmentProvider: @escaping EnvironmentProvider = {
+            ShellClient.cachedLoginShellEnvironment
+        }
+    ) {
+        self.nonLoginShellEnvironmentProvider = nonLoginShellEnvironmentProvider
+    }
+
+    /// Resolves the environment produced by the user's interactive login shell while discarding any
+    /// profile output. Markers make the environment payload unambiguous even when profile scripts print.
+    static func resolveLoginShellEnvironment(
+        baseEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String: String] {
+        let startMarker = "\0CODEEDIT_ENVIRONMENT_START\0"
+        let endMarker = "\0CODEEDIT_ENVIRONMENT_END\0"
+        let command = """
+        /usr/bin/printf '\\0CODEEDIT_ENVIRONMENT_START\\0'
+        /usr/bin/env -0
+        /usr/bin/printf '\\0CODEEDIT_ENVIRONMENT_END\\0'
+        """
+        let process = Process()
+        let outputPipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-lic", command]
+        process.environment = baseEnvironment
+        process.standardOutput = outputPipe
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0,
+                  let startData = startMarker.data(using: .utf8),
+                  let endData = endMarker.data(using: .utf8),
+                  let startRange = output.range(of: startData),
+                  let endRange = output.range(
+                    of: endData,
+                    options: [],
+                    in: startRange.upperBound..<output.endIndex
+                  ) else {
+                return baseEnvironment
+            }
+
+            var environment: [String: String] = [:]
+            let payload = output[startRange.upperBound..<endRange.lowerBound]
+            for item in payload.split(separator: 0) {
+                guard let entry = String(data: Data(item), encoding: .utf8),
+                      let separator = entry.firstIndex(of: "=") else {
+                    continue
+                }
+                environment[String(entry[..<separator])] = String(entry[entry.index(after: separator)...])
+            }
+            return environment.isEmpty ? baseEnvironment : environment
+        } catch {
+            return baseEnvironment
+        }
+    }
+
     /// Generate a process and pipe to run commands
     /// - Parameters:
     ///   - args: commands to run
@@ -36,6 +112,9 @@ class ShellClient {
         task.standardError = pipe
         task.arguments = arguments
         task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        if !useLoginShell {
+            task.environment = nonLoginShellEnvironmentProvider()
+        }
         return (task, pipe)
     }
 
@@ -47,14 +126,23 @@ class ShellClient {
     ///   - args: command to run
     ///   - useLoginShell: whether to run the command in a login shell, sourcing the user's
     ///                    shell profile files. Defaults to `true`.
+    ///   - requireSuccessfulExit: whether a non-zero process status should throw an error.
     /// - Returns: command output
     @discardableResult
-    func run(_ args: String..., useLoginShell: Bool = true) throws -> String {
+    func run(
+        _ args: String...,
+        useLoginShell: Bool = true,
+        requireSuccessfulExit: Bool = false
+    ) throws -> String {
         let (task, pipe) = generateProcessAndPipe(args, useLoginShell: useLoginShell)
         try task.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
         guard let output = String(bytes: data, encoding: .utf8) else {
             throw ShellClientError.failedToDecodeOutput
+        }
+        if requireSuccessfulExit && task.terminationStatus != 0 {
+            throw ShellClientError.taskTerminated(code: Int(task.terminationStatus), output: output)
         }
         return output
     }
@@ -118,7 +206,10 @@ class ShellClient {
                 } else {
                     if !task.isRunning && task.terminationStatus != 0 {
                         continuation.finish(
-                            throwing: ShellClientError.taskTerminated(code: Int(task.terminationStatus))
+                            throwing: ShellClientError.taskTerminated(
+                                code: Int(task.terminationStatus),
+                                output: ""
+                            )
                         )
                     } else {
                         continuation.finish()

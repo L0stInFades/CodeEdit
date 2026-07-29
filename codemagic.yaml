@@ -23,6 +23,29 @@ workflows:
           uname -m
           xcodebuild -version
 
+      - name: Run unit tests
+        script: |
+          #!/bin/bash
+          set -euo pipefail
+
+          BUILD_ROOT="$CM_BUILD_DIR/build/codemagic"
+          TEST_DERIVED_DATA="$CM_BUILD_DIR/../codemagic-test-derived-data"
+          mkdir -p "$BUILD_ROOT"
+
+          xcodebuild \
+            -project "$CM_BUILD_DIR/CodeEdit.xcodeproj" \
+            -scheme CodeEdit \
+            -configuration Debug \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath "$TEST_DERIVED_DATA" \
+            -resultBundlePath "$BUILD_ROOT/Tests.xcresult" \
+            -skipPackagePluginValidation \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:CodeEditTests \
+            test 2>&1 | tee "$BUILD_ROOT/xcodebuild-tests.log"
+
       - name: Build unsigned Debug app
         script: |
           #!/bin/bash
@@ -89,3 +112,4 @@ workflows:
       - build/codemagic/CodeEdit-debug-universal.zip
       - build/codemagic/*.log
       - build/codemagic/Build.xcresult
+      - build/codemagic/Tests.xcresult

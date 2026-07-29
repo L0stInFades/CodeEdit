@@ -34,11 +34,15 @@ class GitConfigClient {
         if global {
             fullCommand += " --global"
         } else if let projectURL = projectURL {
-            fullCommand = "cd \(projectURL.relativePath.escapedDirectory()); " + fullCommand
+            fullCommand = "cd \(projectURL.relativePath.shellEscaped()) && " + fullCommand
         }
 
         fullCommand += " \(command)"
-        return try shellClient.run(fullCommand, useLoginShell: false)
+        return try shellClient.run(
+            fullCommand,
+            useLoginShell: false,
+            requireSuccessfulExit: true
+        )
     }
 
     /// Retrieves a Git configuration value.
@@ -47,7 +51,13 @@ class GitConfigClient {
     ///   - global: Whether to retrieve the value globally or locally.
     /// - Returns: The value as a type conforming to `GitConfigRepresentable`, or `nil` if not found.
     func get<T: GitConfigRepresentable>(key: String, global: Bool = false) async throws -> T? {
-        let output = try await runConfigCommand(key, global: global)
+        let output: String
+        do {
+            output = try await runConfigCommand(key.shellEscaped(), global: global)
+        } catch ShellClientError.taskTerminated(let code, let output) where
+            code == 1 && output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return nil
+        }
         let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
         return T(configValue: trimmedOutput)
     }
@@ -67,7 +77,9 @@ class GitConfigClient {
             shouldUnset = false
         }
 
-        let commandString = shouldUnset ? "--unset \(key)" : "\(key) \(value.asConfigValue)"
+        let commandString = shouldUnset
+            ? "--unset \(key.shellEscaped())"
+            : "\(key.shellEscaped()) \(value.asConfigValue.shellEscaped())"
 
         do {
             _ = try await runConfigCommand(commandString, global: global)

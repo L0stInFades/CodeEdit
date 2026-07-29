@@ -37,12 +37,20 @@ class GitClient {
 
     internal let directoryURL: URL
     internal let shellClient: ShellClient
+    internal let trashItem: (URL) throws -> Void
 
     private let configClient: GitConfigClient
 
-    init(directoryURL: URL, shellClient: ShellClient) {
+    init(
+        directoryURL: URL,
+        shellClient: ShellClient,
+        trashItem: @escaping (URL) throws -> Void = { url in
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        }
+    ) {
         self.directoryURL = directoryURL
         self.shellClient = shellClient
+        self.trashItem = trashItem
         self.configClient = GitConfigClient(projectURL: directoryURL, shellClient: shellClient)
     }
 
@@ -57,8 +65,24 @@ class GitClient {
     /// Runs a git command, it will prepend the command with `cd <directoryURL>;git`,
     /// If you need to run "git checkout", pass "checkout" as the command parameter
     internal func run(_ command: String) async throws -> String {
-        let output = try shellClient.run(generateCommand(command), useLoginShell: false)
-        return try processCommonErrors(output)
+        do {
+            let output = try shellClient.run(
+                generateCommand(command),
+                useLoginShell: false,
+                requireSuccessfulExit: true
+            )
+            return try processCommonErrors(output)
+        } catch ShellClientError.taskTerminated(let code, let output) {
+            do {
+                _ = try processCommonErrors(output)
+            } catch {
+                throw error
+            }
+            let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw GitClientError.outputError(
+                trimmedOutput.isEmpty ? "Git exited with status code \(code)." : trimmedOutput
+            )
+        }
     }
 
     internal typealias LiveCommandStream = AsyncThrowingMapSequence<AsyncThrowingStream<String, Error>, String>
@@ -78,7 +102,7 @@ class GitClient {
     }
 
     private func generateCommand(_ command: String) -> String {
-        "cd \(directoryURL.relativePath.escapedDirectory());git \(command)"
+        "cd \(directoryURL.relativePath.shellEscaped()) && git \(command)"
     }
 
     private func processCommonErrors(_ output: String) throws -> String {

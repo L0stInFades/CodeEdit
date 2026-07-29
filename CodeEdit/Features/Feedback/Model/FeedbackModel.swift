@@ -5,18 +5,21 @@
 //  Created by Nanashi Li on 2022/04/14.
 //
 
+import AppKit
 import SwiftUI
 
+@MainActor
 public class FeedbackModel: ObservableObject {
 
     public static let shared: FeedbackModel = .init()
 
-    private let keychain = CodeEditKeychain()
-
-    @Environment(\.openURL)
-    var openIssueURL
+    private let accountsProvider: () -> [SourceControlAccount]
+    private let tokenProvider: (String) -> String?
+    private let tokenStore: (_ token: String, _ key: String) -> Void
+    private let openURL: (URL) -> Bool
 
     @Published var isSubmitted: Bool = false
+    @Published var didOpenIssueDraft: Bool = false
     @Published var failedToSubmit: Bool = false
     @Published var feedbackTitle: String = ""
     @Published var issueDescription: String = ""
@@ -44,6 +47,23 @@ public class FeedbackModel: ObservableObject {
         FeedbackIssueArea(name: "Editor", id: "editor"),
         FeedbackIssueArea(name: "Other", id: "other")
     ]
+
+    init(
+        accountsProvider: @escaping () -> [SourceControlAccount] = {
+            Settings[\.accounts].sourceControlAccounts.gitAccounts
+        },
+        tokenProvider: ((String) -> String?)? = nil,
+        tokenStore: ((_ token: String, _ key: String) -> Void)? = nil,
+        openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }
+    ) {
+        let keychain = CodeEditKeychain()
+        self.accountsProvider = accountsProvider
+        self.tokenProvider = tokenProvider ?? { keychain.get($0) }
+        self.tokenStore = tokenStore ?? { token, key in
+            keychain.set(token, forKey: key)
+        }
+        self.openURL = openURL
+    }
 
     /// Gets the ID of the selected issue type and then
     /// cross references it to select the right Label based on the type
@@ -138,7 +158,8 @@ public class FeedbackModel: ObservableObject {
         expectation: String?,
         actuallyHappened: String?
     ) {
-        let gitAccounts = Settings[\.accounts].sourceControlAccounts.gitAccounts
+        resetSubmissionState()
+        let gitAccounts = accountsProvider()
         let issueTitle = "\(getFeedbackTypeTitle()) \(title)"
         let issueBody = createIssueBody(
             description: description,
@@ -147,11 +168,7 @@ public class FeedbackModel: ObservableObject {
             actuallyHappened: actuallyHappened
         )
 
-        guard let firstGitAccount = gitAccounts.first,
-              let token = keychain.get(firstGitAccount.name),
-              !token.isEmpty else {
-            // No GitHub account with a valid token is configured, so fall back
-            // to opening a pre-filled new issue page in the browser.
+        guard let token = configuredGitHubToken(in: gitAccounts) else {
             openNewIssueInBrowser(title: issueTitle, body: issueBody)
             return
         }
@@ -164,25 +181,52 @@ public class FeedbackModel: ObservableObject {
             body: issueBody,
             assignee: "",
             labels: [getFeedbackTypeLabel(), getIssueLabel()]
-        ) { response in
-            switch response {
-            case .success(let issue):
-                if Settings[\.sourceControl].general.openFeedbackInBrowser {
-                    self.openIssueURL(issue.htmlURL ?? URL(string: "https://github.com/CodeEditApp/CodeEdit/issues")!)
+        ) { [weak self] response in
+            Task { @MainActor in
+                guard let self else { return }
+                switch response {
+                case .success(let issue):
+                    if Settings[\.sourceControl].general.openFeedbackInBrowser {
+                        _ = self.openURL(
+                            issue.htmlURL ?? URL(string: "https://github.com/CodeEditApp/CodeEdit/issues")!
+                        )
+                    }
+                    self.isSubmitted = true
+                    print(issue)
+                case .failure(let error):
+                    print(error)
+                    self.openNewIssueInBrowser(title: issueTitle, body: issueBody)
                 }
-                self.isSubmitted.toggle()
-                print(issue)
-            case .failure(let error):
-                self.failedToSubmit.toggle()
-                print(error)
             }
         }
     }
 
-    /// Opens a pre-filled GitHub "new issue" page in the browser. Used as a
-    /// fallback when the issue cannot be submitted via the GitHub API because
-    /// no GitHub account with a valid token is configured.
-    private func openNewIssueInBrowser(title: String, body: String) {
+    func configuredGitHubToken(in accounts: [SourceControlAccount]) -> String? {
+        for account in accounts where account.isTokenValid {
+            guard case .github = account.provider else { continue }
+            for key in [account.keychainKey] + account.legacyKeychainKeys {
+                guard let token = tokenProvider(key)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !token.isEmpty else {
+                    continue
+                }
+                if key != account.keychainKey {
+                    tokenStore(token, account.keychainKey)
+                }
+                return token
+            }
+        }
+        return nil
+    }
+
+    private func resetSubmissionState() {
+        isSubmitted = false
+        didOpenIssueDraft = false
+        failedToSubmit = false
+    }
+
+    /// Opens a pre-filled GitHub issue draft in the browser when API submission is unavailable.
+    @discardableResult
+    func openNewIssueInBrowser(title: String, body: String) -> Bool {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "github.com"
@@ -194,9 +238,11 @@ public class FeedbackModel: ObservableObject {
         ]
         guard let url = components.url else {
             failedToSubmit = true
-            return
+            return false
         }
-        openIssueURL(url)
-        isSubmitted = true
+        let didOpen = openURL(url)
+        didOpenIssueDraft = didOpen
+        failedToSubmit = !didOpen
+        return didOpen
     }
 }

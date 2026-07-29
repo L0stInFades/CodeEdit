@@ -15,7 +15,7 @@ struct GitHubTokenConfiguration: GitRouterConfiguration {
     var apiEndpoint: String?
     var accessToken: String?
     let errorDomain: String? = "com.codeedit.models.accounts.github"
-    let authorizationHeader: String? = "Basic"
+    let authorizationHeader: String? = "Bearer"
 
     /// Custom `Accept` header for API previews.
     ///
@@ -30,7 +30,7 @@ struct GitHubTokenConfiguration: GitRouterConfiguration {
 
     init(_ token: String? = nil, url: String? = nil, previewHeaders: [GitHubPreviewHeader] = []) {
         apiEndpoint = url ?? provider.apiURL?.absoluteString
-        accessToken = token?.data(using: .utf8)!.base64EncodedString()
+        accessToken = token
         previewCustomHeaders = previewHeaders.map { $0.header }
     }
 }

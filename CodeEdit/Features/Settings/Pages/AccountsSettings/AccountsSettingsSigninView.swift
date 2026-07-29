@@ -211,21 +211,19 @@ struct AccountsSettingsSigninView: View {
 
     private func handleGitRequestSuccess() {
         let providerLink = provider.baseURL?.absoluteString ?? server
-
-        self.gitAccounts.append(
-            SourceControlAccount(
-                id: "\(providerLink)_\(username.lowercased())",
-                name: username,
-                description: provider.name,
-                provider: provider,
-                serverURL: providerLink,
-                urlProtocol: .https,
-                sshKey: "",
-                isTokenValid: true
-            )
+        let account = SourceControlAccount(
+            id: "\(providerLink)_\(username.lowercased())",
+            name: username,
+            description: provider.name,
+            provider: provider,
+            serverURL: providerLink,
+            urlProtocol: .https,
+            sshKey: "",
+            isTokenValid: true
         )
 
-        keychain.set(personalAccessToken, forKey: "github_\(username)_enterprise")
+        gitAccounts.append(account)
+        keychain.set(personalAccessToken, forKey: account.keychainKey)
         dismiss()
     }
 

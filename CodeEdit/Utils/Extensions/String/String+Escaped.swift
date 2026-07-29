@@ -8,6 +8,11 @@
 import Foundation
 
 extension String {
+    /// Quotes the string as one shell argument, including embedded single quotes.
+    func shellEscaped() -> String {
+        "'" + replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
+    }
+
     /// Escapes the string so it's an always-valid directory
     func escapedDirectory() -> String {
         "\"\(self.escapedQuotes())\""

@@ -29,6 +29,8 @@ struct FeedbackView: View {
                 Spacer()
                 if feedbackModel.isSubmitted {
                     Text("Feedback submitted")
+                } else if feedbackModel.didOpenIssueDraft {
+                    Text("Issue draft opened in browser")
                 } else if feedbackModel.failedToSubmit {
                     Text("Failed to submit feedback")
                 }

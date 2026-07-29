@@ -20,6 +20,14 @@ struct SourceControlAccount: Codable, Identifiable, Hashable {
     var sshKey: String
     var isTokenValid: Bool
 
+    var keychainKey: String {
+        "source_control_\(provider.id)_\(id)"
+    }
+
+    var legacyKeychainKeys: [String] {
+        ["github_\(name)_enterprise", name]
+    }
+
     enum URLProtocol: String, Codable, CaseIterable {
         case https = "HTTPS"
         case ssh = "SSH"

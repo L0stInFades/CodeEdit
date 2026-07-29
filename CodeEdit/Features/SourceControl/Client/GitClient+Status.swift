@@ -84,48 +84,140 @@ extension GitClient {
 
     /// Discard changes for file
     ///
-    /// Restores a tracked file to `HEAD`, unstaging any staged changes first. Untracked files are moved
-    /// to the Trash so the operation is recoverable.
+    /// Restores tracked state to `HEAD`. Files that have no version in `HEAD` are moved to the Trash so
+    /// their contents remain recoverable.
     func discardChanges(for file: URL) async throws {
-        let filePath = file.path(percentEncoded: false)
-        let status = try await run("status --porcelain -z -- '\(filePath)'")
-        if status.hasPrefix("??") {
-            // Untracked files have no version to restore, move them to the Trash instead.
-            try FileManager.default.trashItem(at: file, resultingItemURL: nil)
+        let entries = try await discardStatusEntries()
+        guard let entry = entries.first(where: { $0.represents(file, in: directoryURL) }) else {
+            return
+        }
+
+        let hasHead = try await hasHeadCommit()
+        if entry.isUntracked || entry.isAdded || !hasHead {
+            try trashFileIfPresent(entry.fileURL(in: directoryURL))
+            if entry.isUntracked {
+                return
+            }
+        }
+
+        if hasHead {
+            let pathspec = entry.pathsToRestore.map { $0.shellEscaped() }.joined(separator: " ")
+            _ = try await run("restore --source=HEAD --staged --worktree -- \(pathspec)")
         } else {
-            _ = try await run("restore --staged '\(filePath)'")
-            _ = try await run("restore '\(filePath)'")
+            _ = try await run("rm --cached -f --ignore-unmatch -- \(entry.path.shellEscaped())")
         }
     }
 
     /// Discard all changes in the repository.
     ///
-    /// Restores tracked files to `HEAD`, unstaging any staged changes first, and moves untracked files
-    /// to the Trash so the operation is recoverable.
+    /// Restores tracked files and the index to `HEAD`. Untracked files and staged additions are moved to
+    /// the Trash first. In a repository without a first commit, the index is cleared instead of resolving
+    /// the nonexistent `HEAD`.
     func discardAllChanges() async throws {
-        // Unstage everything first so the working tree restore below also discards formerly staged changes.
-        _ = try await run("restore --staged .")
-        _ = try await run("restore .")
+        let entries = try await discardStatusEntries()
+        guard !entries.isEmpty else { return }
 
-        // `restore` leaves untracked files alone. Enumerate them null-separated (to handle spaces and
-        // newlines in file names) and move each one to the Trash.
-        let untrackedFiles = try await run("ls-files --others --exclude-standard -z")
-            .components(separatedBy: "\0")
-            .filter { !$0.isEmpty }
+        let hasHead = try await hasHeadCommit()
+        let disposablePaths = Set(
+            entries
+                .filter { $0.isUntracked || $0.isAdded || !hasHead }
+                .map(\.path)
+        )
         var failedFiles: [String] = []
-        for path in untrackedFiles {
-            let fileURL = URL(filePath: path, relativeTo: directoryURL)
+        for path in disposablePaths {
             do {
-                try FileManager.default.trashItem(at: fileURL, resultingItemURL: nil)
+                try trashFileIfPresent(directoryURL.appending(path: path))
             } catch {
                 failedFiles.append(path)
             }
         }
         guard failedFiles.isEmpty else {
             throw GitClientError.outputError(
-                "Failed to move untracked files to the Trash: \(failedFiles.joined(separator: ", "))"
+                "Failed to move files to the Trash: \(failedFiles.sorted().joined(separator: ", "))"
             )
         }
+
+        if hasHead {
+            _ = try await run("restore --source=HEAD --staged --worktree .")
+        } else {
+            _ = try await run("rm --cached -r -f --ignore-unmatch -- .")
+        }
+    }
+
+    private struct DiscardStatusEntry {
+        let status: String
+        let path: String
+        let originalPath: String?
+
+        var isUntracked: Bool { status == "??" }
+        var isAdded: Bool { status.contains("A") }
+        var pathsToRestore: [String] {
+            if let originalPath {
+                return [originalPath, path]
+            }
+            return [path]
+        }
+
+        func fileURL(in repositoryURL: URL) -> URL {
+            repositoryURL.appending(path: path)
+        }
+
+        func represents(_ file: URL, in repositoryURL: URL) -> Bool {
+            let targetURL = file.standardizedFileURL
+            if fileURL(in: repositoryURL).standardizedFileURL == targetURL {
+                return true
+            }
+            guard let originalPath else { return false }
+            return repositoryURL.appending(path: originalPath).standardizedFileURL == targetURL
+        }
+    }
+
+    private func discardStatusEntries() async throws -> [DiscardStatusEntry] {
+        let output = try await run("status --porcelain=v1 -z --untracked-files=all")
+        let fields = output.split(separator: "\0", omittingEmptySubsequences: true).map(String.init)
+        var entries: [DiscardStatusEntry] = []
+        var index = 0
+
+        while index < fields.count {
+            let record = fields[index]
+            guard record.count >= 3 else {
+                throw GitClientError.outputError("Invalid porcelain status record: \(record)")
+            }
+            let status = String(record.prefix(2))
+            let path = String(record.dropFirst(3))
+            index += 1
+
+            var originalPath: String?
+            if status.contains("R") || status.contains("C") {
+                guard index < fields.count else {
+                    throw GitClientError.outputError("Missing original path for renamed file: \(path)")
+                }
+                originalPath = fields[index]
+                index += 1
+            }
+            entries.append(DiscardStatusEntry(status: status, path: path, originalPath: originalPath))
+        }
+        return entries
+    }
+
+    private func hasHeadCommit() async throws -> Bool {
+        do {
+            _ = try await run("rev-parse --verify HEAD")
+            return true
+        } catch GitClientError.outputError(let output) where
+            output.contains("Needed a single revision") ||
+            output.contains("unknown revision") ||
+            output.contains("ambiguous argument 'HEAD'") ||
+            output.contains("bad revision 'HEAD'") {
+            return false
+        }
+    }
+
+    private func trashFileIfPresent(_ fileURL: URL) throws {
+        guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
+            return
+        }
+        try trashItem(fileURL)
     }
 
     // MARK: - Parsing Helpers
