@@ -1,0 +1,86 @@
+workflows:
+  codeedit-debug:
+    name: CodeEdit Debug Build and Smoke Test
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+
+    environment:
+      xcode: "26.2"
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: ci/codemagic-build
+          include: true
+          source: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Show build environment
+        script: |
+          sw_vers
+          uname -m
+          xcodebuild -version
+
+      - name: Build unsigned Debug app
+        script: |
+          #!/bin/bash
+          set -euo pipefail
+
+          BUILD_ROOT="$CM_BUILD_DIR/build/codemagic"
+          mkdir -p "$BUILD_ROOT"
+
+          xcodebuild \
+            -project "$CM_BUILD_DIR/CodeEdit.xcodeproj" \
+            -scheme CodeEdit \
+            -configuration Debug \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath "$BUILD_ROOT/DerivedData" \
+            -resultBundlePath "$BUILD_ROOT/Build.xcresult" \
+            -skipPackagePluginValidation \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$BUILD_ROOT/xcodebuild.log"
+
+      - name: Ad-hoc sign and smoke launch
+        script: |
+          #!/bin/bash
+          set -euo pipefail
+
+          BUILD_ROOT="$CM_BUILD_DIR/build/codemagic"
+          APP="$BUILD_ROOT/DerivedData/Build/Products/Debug/CodeEdit.app"
+          EXECUTABLE="$APP/Contents/MacOS/CodeEdit"
+          LOG="$BUILD_ROOT/codeedit-smoke.log"
+
+          test -x "$EXECUTABLE"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
+
+          "$EXECUTABLE" >"$LOG" 2>&1 &
+          APP_PID=$!
+
+          for _ in $(seq 1 15); do
+            sleep 1
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              cat "$LOG"
+              exit 1
+            fi
+          done
+
+          kill "$APP_PID"
+          wait "$APP_PID" || true
+
+          ditto \
+            -c \
+            -k \
+            --sequesterRsrc \
+            --keepParent \
+            "$APP" \
+            "$BUILD_ROOT/CodeEdit-debug-arm64.zip"
+
+    artifacts:
+      - build/codemagic/CodeEdit-debug-arm64.zip
+      - build/codemagic/*.log
+      - build/codemagic/Build.xcresult
