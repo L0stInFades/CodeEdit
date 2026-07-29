@@ -59,7 +59,7 @@ workflows:
           LOG="$BUILD_ROOT/codeedit-smoke.log"
 
           test -x "$EXECUTABLE"
-          lipo -verify_arch arm64 x86_64 "$EXECUTABLE"
+          lipo "$EXECUTABLE" -verify_arch arm64 x86_64
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict "$APP"
 
